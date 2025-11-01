@@ -2,9 +2,6 @@
   import { currentPitch, isCorrect, quizState, settings } from '../stores.js';
   import { findGuitarPosition } from '../lib/music/guitar.js';
   
-  export let onCorrect: () => void;
-  export let onSkip: () => void;
-  
   let smoothedPitch: { note: string; octave: number; string?: number; fret?: number } | null = null;
   let lastStablePitch: { note: string; octave: number; string?: number; fret?: number } | null = null;
   let stabilityCounter = 0;
@@ -56,13 +53,6 @@
     stabilityCounter = 0;
   }
   
-  function handleCorrect() {
-    onCorrect();
-  }
-  
-  function handleSkip() {
-    onSkip();
-  }
 </script>
 
 <div class="now-playing">
@@ -72,7 +62,6 @@
       <div class="success-state">
         <div class="success-icon">✓</div>
         <div class="success-message">Correct!</div>
-        <div class="good-job">Good job! 🎉</div>
       </div>
     {:else if $isCorrect === false && smoothedPitch}
       <!-- Error state - show what was played -->
@@ -120,11 +109,6 @@
       <span class="status-placeholder">&nbsp;</span>
     {/if}
   </div>
-  
-  <div class="actions">
-    <button on:click={handleCorrect} class="btn-correct">Mark Correct</button>
-    <button on:click={handleSkip} class="btn-skip">Skip</button>
-  </div>
 </div>
 
 <style>
@@ -134,8 +118,8 @@
   }
   
   .detection {
-    margin: 2rem 0;
-    min-height: 250px;
+    margin: 1rem 0;
+    height: 200px;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -162,25 +146,6 @@
     font-size: 2.5rem;
     color: #4caf50;
     font-weight: bold;
-  }
-  
-  .good-job {
-    font-size: 1.5rem;
-    color: #4caf50;
-    opacity: 0.9;
-    margin-top: 0.5rem;
-    animation: fadeInUp 0.6s ease-out 0.3s both;
-  }
-  
-  @keyframes fadeInUp {
-    0% {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-    100% {
-      opacity: 0.9;
-      transform: translateY(0);
-    }
   }
   
   @keyframes successPulse {
@@ -306,35 +271,5 @@
   
   .status-placeholder {
     visibility: hidden;
-  }
-  
-  .actions {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    margin-top: 2rem;
-  }
-  
-  button {
-    padding: 0.75rem 1.5rem;
-    font-size: 1rem;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: opacity 0.2s;
-  }
-  
-  button:hover {
-    opacity: 0.8;
-  }
-  
-  .btn-correct {
-    background: #4caf50;
-    color: white;
-  }
-  
-  .btn-skip {
-    background: #666;
-    color: white;
   }
 </style>

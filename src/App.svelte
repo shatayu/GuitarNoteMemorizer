@@ -8,8 +8,6 @@
   import Prompt from './components/Prompt.svelte';
   import NowPlaying from './components/NowPlaying.svelte';
   import Controls from './components/Controls.svelte';
-  import Fretboard from './components/Fretboard.svelte';
-  import Visualizer from './components/Visualizer.svelte';
   import MicrophonePopup from './components/MicrophonePopup.svelte';
   
   let initialized = false;
@@ -46,7 +44,7 @@
         await startListening();
       }
       
-      // Note: Microphone status checking is handled by Visualizer component
+      // Note: Microphone status checking is handled by MicrophoneIcon component
       // which polls every 100ms for immediate feedback
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -287,12 +285,6 @@
   }
   
   function handleCorrect() {
-    quizState.update(state => ({
-      ...state,
-      score: state.score + 1,
-      streak: state.streak + 1
-    }));
-    
     // Store previous target note to ignore bleed-over
     previousTargetNote = $quizState.targetNote;
     
@@ -496,9 +488,6 @@
     if (e.code === 'Space') {
       e.preventDefault();
       handleSkip();
-    } else if (e.code === 'KeyC') {
-      e.preventDefault();
-      handleCorrect();
     }
   }
 </script>
@@ -508,6 +497,9 @@
 <div class="app">
   <header>
     <h1>Guitar Note Memorizer</h1>
+    <div class="header-controls">
+      <Controls />
+    </div>
   </header>
   
   <main>
@@ -515,17 +507,10 @@
       targetNote={$quizState.targetNote}
       targetString={$quizState.targetString}
       questionNum={$quizState.currentQuestion}
-      score={$quizState.score}
-      streak={$quizState.streak}
+      onSkip={handleSkip}
     />
     
-    <NowPlaying onCorrect={handleCorrect} onSkip={handleSkip} />
-    
-    <Controls />
-    
-    <Visualizer />
-    
-    <Fretboard />
+    <NowPlaying />
   </main>
   
     <MicrophonePopup on:microphoneEnabled={handleMicrophoneEnabled} />
@@ -544,17 +529,27 @@
   .app {
     max-width: 800px;
     margin: 0 auto;
-    padding: 2rem;
+    padding: 1rem;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
   }
   
   header {
     text-align: center;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
   }
   
   header h1 {
-    font-size: 2.5rem;
-    margin: 0;
+    font-size: 2rem;
+    margin: 0 0 1rem 0;
+  }
+  
+  .header-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
   }
   
   main {

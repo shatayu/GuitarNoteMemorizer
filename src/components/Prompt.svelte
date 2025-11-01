@@ -4,21 +4,21 @@
   export let targetNote: string;
   export let targetString: number;
   export let questionNum: number;
-  export let score: number;
-  export let streak: number;
+  export let onSkip: () => void;
 </script>
 
 <div class="prompt">
-  <div class="question-info">
-    <span class="question-num">Question {questionNum}</span>
-    <span class="score">Score: {score}</span>
-    <span class="streak">Streak: {streak}</span>
-  </div>
   <div class="target">
     {#key targetNote}
-      <h1>Play: {targetNote}</h1>
-      <h2>On {targetString}{targetString === 1 ? 'st' : targetString === 2 ? 'nd' : targetString === 3 ? 'rd' : 'th'} string</h2>
+      <h1>Play {targetNote}</h1>
+      <h2>on {targetString}{targetString === 1 ? 'st' : targetString === 2 ? 'nd' : targetString === 3 ? 'rd' : 'th'} string</h2>
     {/key}
+  </div>
+  <div class="actions">
+    <button on:click={onSkip} class="btn-skip">Skip</button>
+  </div>
+  <div class="question-info">
+    <span class="question-num">Question {questionNum}</span>
   </div>
 </div>
 
@@ -34,8 +34,8 @@
   
   .question-info {
     display: flex;
-    justify-content: space-between;
-    margin-bottom: 2rem;
+    justify-content: center;
+    margin-top: 1rem;
     font-size: 1rem;
     opacity: 0.7;
     min-height: 1.5rem;
@@ -62,6 +62,31 @@
     opacity: 0.8;
     line-height: 1.2;
     animation: slideInFromRight 0.5s ease-out 0.1s both;
+  }
+  
+  .actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1rem;
+  }
+  
+  button {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  
+  button:hover {
+    opacity: 0.8;
+  }
+  
+  .btn-skip {
+    background: #666;
+    color: white;
   }
   
   @keyframes slideInFromRight {
