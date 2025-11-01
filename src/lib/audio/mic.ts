@@ -1,18 +1,41 @@
 // Microphone setup and audio context management
 
+import { showMicrophonePopup } from '../../stores.js';
+
 let audioContext: AudioContext | null = null;
 let analyser: AnalyserNode | null = null;
 let source: MediaStreamAudioSourceNode | null = null;
 let stream: MediaStream | null = null;
+let stateChangeHandler: (() => void) | null = null;
 
 export async function initAudio(deviceId?: string): Promise<AudioContext> {
   if (audioContext) {
     console.log('DEBUG: AudioContext already exists | State:', audioContext.state);
-    // Resume if suspended
-    if (audioContext.state === 'suspended') {
-      console.log('DEBUG: AudioContext suspended, attempting to resume...');
-      await audioContext.resume();
-      console.log('DEBUG: AudioContext resumed | New state:', audioContext.state);
+    
+    // Ensure state change listener is set up
+    if (!stateChangeHandler) {
+      stateChangeHandler = () => {
+        if (audioContext) {
+          console.log('DEBUG: AudioContext state changed | New state:', audioContext.state);
+          // If AudioContext stops (closed or suspended), show popup immediately
+          if (audioContext.state === 'closed' || audioContext.state === 'suspended') {
+            console.log('DEBUG: AudioContext stopped, showing microphone popup');
+            showMicrophonePopup.set(true);
+          } else if (audioContext.state === 'running') {
+            // If AudioContext resumes, hide popup (user can dismiss manually if needed)
+            console.log('DEBUG: AudioContext running, hiding microphone popup');
+            showMicrophonePopup.set(false);
+          }
+        }
+      };
+      audioContext.addEventListener('statechange', stateChangeHandler);
+    }
+    
+    // Check current state - if stopped, show popup immediately
+    // (statechange event only fires on transitions, not current state)
+    if (audioContext.state === 'closed' || audioContext.state === 'suspended') {
+      console.log('DEBUG: AudioContext currently stopped, showing microphone popup');
+      showMicrophonePopup.set(true);
     }
     return audioContext;
   }
@@ -30,11 +53,31 @@ export async function initAudio(deviceId?: string): Promise<AudioContext> {
 
   console.log('DEBUG: AudioContext created | State:', audioContext.state, '| SampleRate:', audioContext.sampleRate);
   
-  // Resume if suspended (common in modern browsers)
-  if (audioContext.state === 'suspended') {
-    console.log('DEBUG: AudioContext suspended, attempting to resume...');
-    await audioContext.resume();
-    console.log('DEBUG: AudioContext resumed | New state:', audioContext.state);
+  // Set up state change listener to detect when AudioContext stops
+  if (stateChangeHandler) {
+    audioContext.removeEventListener('statechange', stateChangeHandler);
+  }
+  stateChangeHandler = () => {
+    if (audioContext) {
+      console.log('DEBUG: AudioContext state changed | New state:', audioContext.state);
+      // If AudioContext stops (closed or suspended), show popup immediately
+      if (audioContext.state === 'closed' || audioContext.state === 'suspended') {
+        console.log('DEBUG: AudioContext stopped, showing microphone popup');
+        showMicrophonePopup.set(true);
+      } else if (audioContext.state === 'running') {
+        // If AudioContext resumes, hide popup (user can dismiss manually if needed)
+        console.log('DEBUG: AudioContext running, hiding microphone popup');
+        showMicrophonePopup.set(false);
+      }
+    }
+  };
+  audioContext.addEventListener('statechange', stateChangeHandler);
+  
+  // Check initial state - if stopped, show popup immediately
+  // (statechange event only fires on transitions, not initial state)
+  if (audioContext.state === 'closed' || audioContext.state === 'suspended') {
+    console.log('DEBUG: AudioContext initially stopped, showing microphone popup');
+    showMicrophonePopup.set(true);
   }
 
   return audioContext;
@@ -78,11 +121,12 @@ export async function startMicrophone(deviceId?: string): Promise<MediaStream> {
       source.disconnect();
     }
 
-    // Ensure AudioContext is running
-    if (audioContext!.state === 'suspended') {
-      console.log('DEBUG: AudioContext suspended, resuming...');
-      await audioContext!.resume();
-      console.log('DEBUG: AudioContext resumed | New state:', audioContext!.state);
+    // Check AudioContext state - if closed, we need to reinitialize
+    if (audioContext!.state === 'closed') {
+      console.log('DEBUG: AudioContext closed, reinitializing...');
+      audioContext = null;
+      analyser = null;
+      await initAudio();
     }
 
     source = audioContext!.createMediaStreamSource(stream);

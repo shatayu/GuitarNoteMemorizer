@@ -1,17 +1,25 @@
 <script lang="ts">
   import { showMicrophonePopup } from '../stores.js';
-  import { startMicrophone } from '../lib/audio/mic.js';
+  import { startMicrophone, getAudioContext } from '../lib/audio/mic.js';
   import { settings } from '../stores.js';
   import { createEventDispatcher } from 'svelte';
   
   const dispatch = createEventDispatcher();
   let isRequesting = false;
+  const microphoneSvg = '/microphone.svg';
   
   async function enableMicrophone() {
     if (isRequesting) return;
     
     isRequesting = true;
     try {
+      // Resume AudioContext if suspended (we have user interaction context from button click)
+      const audioContext = getAudioContext();
+      if (audioContext && audioContext.state === 'suspended') {
+        console.log('DEBUG: Resuming AudioContext from user interaction');
+        await audioContext.resume();
+      }
+      
       // Start microphone - this will have user interaction context from the button click
       await startMicrophone($settings.deviceId || undefined);
       
@@ -49,9 +57,11 @@
         <button class="close-btn" on:click={dismiss} aria-label="Close dialog">×</button>
       </div>
       <div class="popup-body">
-        <div class="icon">🎤</div>
+        <div class="icon">
+          <img src={microphoneSvg} alt="Microphone" />
+        </div>
         <p>The microphone is not currently active. Please enable microphone access to use this app.</p>
-        <p class="hint">Your browser will ask for permission to access your microphone.</p>
+        <p class="hint">Your browser may ask for permission to access your microphone.</p>
       </div>
       <div class="popup-footer">
         <button class="btn-enable" on:click={enableMicrophone} disabled={isRequesting}>
@@ -130,8 +140,16 @@
   }
   
   .icon {
-    font-size: 4rem;
     margin-bottom: 1rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .icon img {
+    width: 80px;
+    height: 80px;
+    filter: brightness(0) invert(1);
   }
   
   .popup-body p {
