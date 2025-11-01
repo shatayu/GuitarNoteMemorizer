@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: guitar-note-memorizer
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+

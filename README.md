@@ -44,3 +44,33 @@ npm run dev
 ## Browser Support
 
 Works in modern browsers with Web Audio API support (Chrome, Firefox, Safari, Edge).
+
+## Deployment on Render
+
+This app is configured to deploy on Render using a simple Express server.
+
+### Quick Deploy
+
+1. **Push your code to GitHub** (if not already done)
+2. **Connect to Render:**
+   - Go to [render.com](https://render.com) and sign up/login
+   - Click "New +" → "Web Service"
+   - Connect your GitHub repository
+   - Render will automatically detect the `render.yaml` file
+
+3. **Manual Configuration (if not using render.yaml):**
+   - **Build Command:** `npm install && npm run build`
+   - **Start Command:** `npm start`
+   - **Environment:** Node
+
+### Alternative: Static Site
+
+If you prefer to use Render's Static Site service instead:
+
+1. Go to "New +" → "Static Site"
+2. Connect your GitHub repository
+3. Set:
+   - **Build Command:** `npm install && npm run build`
+   - **Publish Directory:** `dist`
+
+The app will be live at `https://your-app-name.onrender.com`
