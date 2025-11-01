@@ -294,7 +294,7 @@
     currentPitch.set(null);
     // Keep isCorrect as true to show success feedback
     
-    // Show success feedback for 2 seconds, then transition to next note
+    // Show success feedback for 250ms, then transition to next note
     setTimeout(() => {
       generateRandomPrompt();
       // Clear success state when transitioning to next note
@@ -307,7 +307,7 @@
           previousTargetNote = null;
         }, 1000); // Additional 1 second grace period
       }, 500); // 500ms after prompt generation
-    }, 2000); // 2 seconds of success feedback
+    }, 250); // 250ms of success feedback
   }
   
   function handleSkip() {

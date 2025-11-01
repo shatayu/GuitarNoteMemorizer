@@ -132,14 +132,14 @@
     flex-direction: column;
     align-items: center;
     gap: 1rem;
-    animation: successPulse 0.5s ease-out;
+    animation: successPulse 0.2s ease-out;
   }
   
   .success-icon {
     font-size: 5rem;
     color: #4caf50;
     font-weight: bold;
-    animation: successScale 0.5s ease-out;
+    animation: successScale 0.2s ease-out;
   }
   
   .success-message {
@@ -180,7 +180,7 @@
     flex-direction: column;
     align-items: center;
     gap: 1rem;
-    animation: errorShake 0.5s ease-out;
+    animation: errorShake 0.2s ease-out;
   }
   
   .error-icon {
