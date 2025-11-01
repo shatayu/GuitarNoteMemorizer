@@ -5,6 +5,7 @@
   import { frequencyToNoteInfo, NOTE_NAMES, getOctave } from './lib/music/note.js';
   import { findGuitarPosition, matchesTarget, getOpenStringNote, getFretFrequency, getFretFromFrequency, OPEN_STRINGS } from './lib/music/guitar.js';
   import { startMicrophone, stopMicrophone, isMicrophoneListening } from './lib/audio/mic.js';
+  import { requestWakeLock, releaseWakeLock } from './lib/wakeLock.js';
   import Prompt from './components/Prompt.svelte';
   import NowPlaying from './components/NowPlaying.svelte';
   import Controls from './components/Controls.svelte';
@@ -19,8 +20,23 @@
   
   let microphoneCheckInterval: number | null = null;
   
+  // Handle visibility change to reacquire wake lock when tab becomes visible
+  function handleVisibilityChange() {
+    if (document.visibilityState === 'visible') {
+      // Reacquire wake lock when tab becomes visible
+      requestWakeLock();
+    }
+  }
+  
   onMount(async () => {
     console.log('DEBUG: App mounted, initializing pitch detector...');
+    
+    // Request wake lock to prevent device from sleeping
+    await requestWakeLock();
+    
+    // Listen for visibility changes to reacquire wake lock when tab becomes visible
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
     try {
       await initPitchDetector();
       initialized = true;
@@ -53,6 +69,13 @@
       // Show popup instead of alert
       showMicrophonePopup.set(true);
     }
+  });
+  
+  onDestroy(() => {
+    // Release wake lock when component is destroyed
+    releaseWakeLock();
+    // Remove visibility change listener
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
   });
   
   /**
@@ -420,6 +443,8 @@
   
   async function handleMicrophoneEnabled() {
     console.log('DEBUG: Microphone enabled event received, starting listening...');
+    // Request wake lock when microphone is enabled (after user interaction)
+    await requestWakeLock();
     if (initialized) {
       await startListening();
     }
