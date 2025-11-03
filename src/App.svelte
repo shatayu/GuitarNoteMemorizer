@@ -113,7 +113,7 @@
     const previousNoteName = $quizState.targetNote ? $quizState.targetNote.replace(/\d+$/, '') : null;
     
     // Generate random fret (0 = open, or 1-12 if frets1to12Only)
-    const maxFret = currentSettings.frets1to12Only ? 12 : 24;
+    const maxFret = currentSettings.frets1to12Only ? 12 : 21;
     
     // Keep generating until we get a different note (after all adjustments)
     let targetString: number;
@@ -391,7 +391,7 @@
             }
           }
           
-          const position = findGuitarPosition(detection.frequency, currentSettings.a4);
+          const position = findGuitarPosition(detection.frequency, currentSettings.a4, 21);
           
           const logMsg = `Pitch detected | Freq: ${detection.frequency.toFixed(2)} Hz | Note: ${noteInfo.name}${noteInfo.octave} | Cents: ${noteInfo.cents} | Position: ${position ? `String ${position.string}, Fret ${position.fret}` : 'unknown'}`;
           console.log('DEBUG: ' + logMsg);
@@ -481,7 +481,7 @@
           .map((enabled: boolean, i: number) => enabled ? 6 - i : null)
           .filter((s): s is number => s !== null);
         
-        const maxFret = $settings.frets1to12Only ? 12 : 24;
+        const maxFret = $settings.frets1to12Only ? 12 : 21;
         const currentTargetFret = $quizState.targetFret;
         const currentTargetString = $quizState.targetString;
         

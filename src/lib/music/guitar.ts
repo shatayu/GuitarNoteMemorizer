@@ -41,7 +41,7 @@ export interface GuitarPosition {
 /**
  * Find the best guitar position for a given frequency
  */
-export function findGuitarPosition(frequency: number, a4: number = 440, maxFret: number = 24): GuitarPosition | null {
+export function findGuitarPosition(frequency: number, a4: number = 440, maxFret: number = 21): GuitarPosition | null {
   let best: GuitarPosition | null = null;
   let bestCents = Infinity;
   
@@ -82,7 +82,7 @@ export function matchesTarget(
   targetString: number,
   tolerance: number,
   a4: number = 440,
-  maxFret: number = 24
+  maxFret: number = 21
 ): boolean {
   const targetFreq = getFretFrequency(targetString, targetNote === 0 ? 0 : targetNote - getOpenStringNote(targetString), a4);
   const detectedInfo = frequencyToNoteInfo(detectedFrequency, a4);
