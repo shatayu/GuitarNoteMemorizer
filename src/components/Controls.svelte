@@ -7,6 +7,9 @@
   let showSettings = false;
   let dropdownOpen = false;
   let dropdownElement: HTMLDivElement;
+  let highestFretInput: HTMLInputElement;
+  let highestFretDisplayValue: string = '21';
+  let isEditingHighestFret: boolean = false;
   
   async function loadDevices() {
     devices = await getAudioDevices();
@@ -22,6 +25,86 @@
   
   function updateSetting(key: keyof typeof $settings, value: any) {
     settings.update(s => ({ ...s, [key]: value }));
+  }
+  
+  // Sync display value with settings (only when not editing)
+  $: if (!isEditingHighestFret) {
+    highestFretDisplayValue = String($settings.highestFret);
+  }
+  
+  function handleHighestFretInput(event: Event) {
+    isEditingHighestFret = true;
+    const input = event.target as HTMLInputElement;
+    let value = input.value;
+    
+    // Allow empty input while typing
+    if (value === '') {
+      highestFretDisplayValue = '';
+      return;
+    }
+    
+    // Filter out non-numeric characters
+    value = value.replace(/[^0-9]/g, '');
+    highestFretDisplayValue = value;
+    
+    if (value === '') {
+      return;
+    }
+    
+    const numValue = parseInt(value, 10);
+    
+    // Only allow numbers between 1 and 100
+    if (!isNaN(numValue)) {
+      if (numValue < 1) {
+        highestFretDisplayValue = '1';
+        updateSetting('highestFret', 1);
+      } else if (numValue > 100) {
+        highestFretDisplayValue = '100';
+        updateSetting('highestFret', 100);
+      } else {
+        updateSetting('highestFret', numValue);
+      }
+    }
+  }
+  
+  function handleHighestFretBlur(event: Event) {
+    const input = event.target as HTMLInputElement;
+    
+    // If empty on blur, restore to 21
+    if (input.value === '' || isNaN(parseInt(input.value, 10))) {
+      highestFretDisplayValue = '21';
+      updateSetting('highestFret', 21);
+      input.value = '21';
+    } else {
+      const value = parseInt(input.value, 10);
+      if (value < 1) {
+        highestFretDisplayValue = '1';
+        updateSetting('highestFret', 1);
+        input.value = '1';
+      } else if (value > 100) {
+        highestFretDisplayValue = '100';
+        updateSetting('highestFret', 100);
+        input.value = '100';
+      } else {
+        highestFretDisplayValue = String(value);
+        updateSetting('highestFret', value);
+      }
+    }
+    
+    isEditingHighestFret = false;
+  }
+  
+  function handleHighestFretFocus(event: Event) {
+    isEditingHighestFret = true;
+  }
+  
+  // Validate and clamp highestFret value (only clamp, don't prevent empty)
+  $: if ($settings.highestFret !== undefined && !isNaN($settings.highestFret)) {
+    if ($settings.highestFret < 1) {
+      updateSetting('highestFret', 1);
+    } else if ($settings.highestFret > 100) {
+      updateSetting('highestFret', 100);
+    }
   }
   
   function toggleDropdown(event: MouseEvent) {
@@ -158,6 +241,24 @@
           <label>
             <span>Frets 1-12 only</span>
             <input type="checkbox" bind:checked={$settings.frets1to12Only} id="frets-only" />
+          </label>
+        </div>
+        
+        <div class="setting-group">
+          <label>
+            Highest fret: 
+            <input 
+              type="text"
+              inputmode="numeric"
+              bind:this={highestFretInput}
+              bind:value={highestFretDisplayValue}
+              disabled={$settings.frets1to12Only}
+              on:input={handleHighestFretInput}
+              on:focus={handleHighestFretFocus}
+              on:blur={handleHighestFretBlur}
+              class:disabled={$settings.frets1to12Only}
+              class="highest-fret-input"
+            />
           </label>
         </div>
         
@@ -457,7 +558,8 @@
     cursor: pointer;
   }
   
-  input[type="number"] {
+  input[type="number"],
+  input[type="text"].highest-fret-input {
     width: 100%;
     padding: 0.5rem;
     background: #333;
@@ -466,6 +568,27 @@
     border-radius: 4px;
     margin-top: 0.75rem;
     font-size: 0.9rem;
+  }
+  
+  input[type="number"]:disabled,
+  input[type="number"].disabled,
+  input[type="text"].highest-fret-input:disabled,
+  input[type="text"].highest-fret-input.disabled {
+    background: #222;
+    color: #666;
+    cursor: not-allowed;
+    border-color: #333;
+  }
+  
+  /* Remove spinner arrows for number inputs */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  input[type="number"] {
+    -moz-appearance: textfield;
   }
   
   @keyframes fadeIn {

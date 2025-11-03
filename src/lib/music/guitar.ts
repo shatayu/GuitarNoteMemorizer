@@ -26,10 +26,10 @@ export function getFretFrequency(string: number, fret: number, a4: number = 440)
   return noteToFrequency(frettedNote, a4);
 }
 
-export function getFretFromFrequency(frequency: number, string: number, a4: number = 440): number {
+export function getFretFromFrequency(frequency: number, string: number, a4: number = 440, maxFret: number = 100): number {
   const openFreq = getOpenStringFrequency(string, a4);
   const fret = Math.round(12 * (Math.log(frequency / openFreq) / Math.log(2)));
-  return Math.max(0, Math.min(fret, 21)); // Cap at 21 frets (standard guitar max)
+  return Math.max(0, Math.min(fret, maxFret));
 }
 
 export interface GuitarPosition {
@@ -45,12 +45,12 @@ export function findGuitarPosition(frequency: number, a4: number = 440, maxFret:
   let best: GuitarPosition | null = null;
   let bestCents = Infinity;
   
-  // Cap maxFret at 21 (standard guitar max frets)
-  const actualMaxFret = Math.min(maxFret, 21);
+  // Cap maxFret at 100 for safety
+  const actualMaxFret = Math.min(maxFret, 100);
 
   // Check strings from lowest (6) to highest (1) to prefer lower strings
   for (let string = 6; string >= 1; string--) {
-    const fret = getFretFromFrequency(frequency, string, a4);
+    const fret = getFretFromFrequency(frequency, string, a4, actualMaxFret);
     if (fret < 0 || fret > actualMaxFret) continue;
 
     const expectedFreq = getFretFrequency(string, fret, a4);

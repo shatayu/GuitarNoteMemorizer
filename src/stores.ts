@@ -6,6 +6,7 @@ export interface Settings {
   enabledStrings: boolean[];
   wholeNotesOnly: boolean;
   frets1to12Only: boolean;
+  highestFret: number;
   tolerance: number;
   a4: number;
   deviceId: string | null;
@@ -36,6 +37,7 @@ export const settings = writable<Settings>({
   enabledStrings: [true, true, true, true, true, true],
   wholeNotesOnly: false,
   frets1to12Only: false,
+  highestFret: 21,
   tolerance: 30,
   a4: 440,
   deviceId: null,
@@ -62,7 +64,18 @@ if (typeof window !== 'undefined') {
   const saved = localStorage.getItem('guitar-settings');
   if (saved) {
     try {
-      settings.set({ ...settings, ...JSON.parse(saved) });
+      const parsed = JSON.parse(saved);
+      const defaultSettings = {
+        enabledStrings: [true, true, true, true, true, true],
+        wholeNotesOnly: false,
+        frets1to12Only: false,
+        highestFret: 21,
+        tolerance: 30,
+        a4: 440,
+        deviceId: null,
+        isListening: false
+      };
+      settings.set({ ...defaultSettings, ...parsed });
     } catch (e) {
       // Ignore parse errors
     }

@@ -113,7 +113,7 @@
     const previousNoteName = $quizState.targetNote ? $quizState.targetNote.replace(/\d+$/, '') : null;
     
     // Generate random fret (0 = open, or 1-12 if frets1to12Only)
-    const maxFret = currentSettings.frets1to12Only ? 12 : 21;
+    const maxFret = currentSettings.frets1to12Only ? 12 : currentSettings.highestFret;
     
     // Keep generating until we get a different note (after all adjustments)
     let targetString: number;
@@ -280,7 +280,7 @@
     const expectedFreq = getFretFrequency(targetString, targetFret, currentSettings.a4);
     
     // Calculate fret on target string from detected frequency
-    const detectedFret = getFretFromFrequency(pitch.frequency, targetString, currentSettings.a4);
+    const detectedFret = getFretFromFrequency(pitch.frequency, targetString, currentSettings.a4, currentSettings.highestFret);
     
     // Check if detected fret matches expected fret (with tolerance)
     if (Math.abs(detectedFret - targetFret) <= 1) {
@@ -391,7 +391,7 @@
             }
           }
           
-          const position = findGuitarPosition(detection.frequency, currentSettings.a4, 21);
+          const position = findGuitarPosition(detection.frequency, currentSettings.a4, currentSettings.highestFret);
           
           const logMsg = `Pitch detected | Freq: ${detection.frequency.toFixed(2)} Hz | Note: ${noteInfo.name}${noteInfo.octave} | Cents: ${noteInfo.cents} | Position: ${position ? `String ${position.string}, Fret ${position.fret}` : 'unknown'}`;
           console.log('DEBUG: ' + logMsg);
@@ -457,54 +457,75 @@
     promptGenerated = true;
   }
   
-  // Watch for settings changes and regenerate prompt if needed
+  // Watch for settings changes and restart quiz if needed
   let prevSettings = {
     enabledStrings: JSON.stringify($settings.enabledStrings),
     wholeNotesOnly: $settings.wholeNotesOnly,
-    frets1to12Only: $settings.frets1to12Only
+    frets1to12Only: $settings.frets1to12Only,
+    highestFret: $settings.highestFret,
+    tolerance: $settings.tolerance,
+    a4: $settings.a4
   };
   
   $: {
     const currentEnabledStrings = JSON.stringify($settings.enabledStrings);
     const currentWholeNotesOnly = $settings.wholeNotesOnly;
     const currentFrets1to12Only = $settings.frets1to12Only;
+    const currentHighestFret = $settings.highestFret;
+    const currentTolerance = $settings.tolerance;
+    const currentA4 = $settings.a4;
     
-    // Only regenerate if relevant settings changed and we have a current question
-    if ($quizState.currentQuestion > 0) {
-      const stringsChanged = currentEnabledStrings !== prevSettings.enabledStrings;
-      const notesChanged = currentWholeNotesOnly !== prevSettings.wholeNotesOnly;
-      const fretsChanged = currentFrets1to12Only !== prevSettings.frets1to12Only;
+    // Check if any relevant settings changed
+    const settingsChanged = 
+      currentEnabledStrings !== prevSettings.enabledStrings ||
+      currentWholeNotesOnly !== prevSettings.wholeNotesOnly ||
+      currentFrets1to12Only !== prevSettings.frets1to12Only ||
+      currentHighestFret !== prevSettings.highestFret ||
+      currentTolerance !== prevSettings.tolerance ||
+      currentA4 !== prevSettings.a4;
+    
+    // Restart quiz if settings changed and we have a current question
+    if (settingsChanged && $quizState.currentQuestion > 0) {
+      // Reset quiz state
+      quizState.update(state => ({
+        ...state,
+        currentQuestion: 0,
+        score: 0,
+        streak: 0,
+        targetNote: '',
+        targetString: 0,
+        targetFret: 0,
+        startTime: 0
+      }));
       
-      if (stringsChanged || notesChanged || fretsChanged) {
-        // Check if current prompt is still valid with new settings
-        const enabledStrings = $settings.enabledStrings
-          .map((enabled: boolean, i: number) => enabled ? 6 - i : null)
-          .filter((s): s is number => s !== null);
-        
-        const maxFret = $settings.frets1to12Only ? 12 : 21;
-        const currentTargetFret = $quizState.targetFret;
-        const currentTargetString = $quizState.targetString;
-        
-        // Regenerate if:
-        // 1. Current target string is disabled
-        // 2. Current target fret is out of range
-        // 3. Whole notes setting changed and current note is a sharp
-        const needsRegen = 
-          !enabledStrings.includes(currentTargetString) ||
-          currentTargetFret > maxFret ||
-          (notesChanged && $quizState.targetNote.includes('♯'));
-        
-        if (needsRegen) {
-          generateRandomPrompt();
-        }
-        
-        // Update previous settings
-        prevSettings = {
-          enabledStrings: currentEnabledStrings,
-          wholeNotesOnly: currentWholeNotesOnly,
-          frets1to12Only: currentFrets1to12Only
-        };
-      }
+      // Clear current pitch and correctness
+      currentPitch.set(null);
+      isCorrect.set(null);
+      stableDetections = 0;
+      isTransitioning = false;
+      
+      // Generate new prompt (will increment currentQuestion to 1)
+      generateRandomPrompt();
+      
+      // Update previous settings
+      prevSettings = {
+        enabledStrings: currentEnabledStrings,
+        wholeNotesOnly: currentWholeNotesOnly,
+        frets1to12Only: currentFrets1to12Only,
+        highestFret: currentHighestFret,
+        tolerance: currentTolerance,
+        a4: currentA4
+      };
+    } else if (settingsChanged) {
+      // Update previous settings even if quiz wasn't active
+      prevSettings = {
+        enabledStrings: currentEnabledStrings,
+        wholeNotesOnly: currentWholeNotesOnly,
+        frets1to12Only: currentFrets1to12Only,
+        highestFret: currentHighestFret,
+        tolerance: currentTolerance,
+        a4: currentA4
+      };
     }
   }
   
