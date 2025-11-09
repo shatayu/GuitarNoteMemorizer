@@ -20,6 +20,15 @@
   
   let microphoneCheckInterval: number | null = null;
   
+  // Shuffled note queue state
+  interface NoteEntry {
+    string: number;
+    fret: number;
+    displayNote: string;
+  }
+  let noteQueue: NoteEntry[] = [];
+  let currentNoteIndex: number = 0;
+  
   // Handle visibility change to reacquire wake lock when tab becomes visible
   function handleVisibilityChange() {
     if (document.visibilityState === 'visible') {
@@ -98,6 +107,72 @@
     return octaves.size > 1;
   }
   
+  /**
+   * Shuffle an array using Fisher-Yates algorithm
+   */
+  function shuffleArray<T>(array: T[]): T[] {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }
+  
+  /**
+   * Generate all possible notes based on current settings
+   */
+  function generateAllPossibleNotes(): NoteEntry[] {
+    const currentSettings = $settings;
+    const enabledStrings = currentSettings.enabledStrings
+      .map((enabled: boolean, i: number) => enabled ? 6 - i : null)
+      .filter((s): s is number => s !== null);
+    
+    if (enabledStrings.length === 0) {
+      return [];
+    }
+    
+    const maxFret = currentSettings.frets1to12Only ? 12 : currentSettings.highestFret;
+    const allNotes: NoteEntry[] = [];
+    
+    for (const string of enabledStrings) {
+      const openNote = getOpenStringNote(string);
+      
+      for (let fret = 0; fret <= maxFret; fret++) {
+        const targetMidiNote = openNote + fret;
+        const noteIndex = targetMidiNote % 12;
+        let noteName = NOTE_NAMES[noteIndex];
+        const octave = getOctave(targetMidiNote);
+        
+        // If whole notes only, skip sharps
+        if (currentSettings.wholeNotesOnly && noteName.includes('♯')) {
+          continue;
+        }
+        
+        // Determine display note (with octave if needed)
+        const showOctave = hasMultipleNotesWithSameName(string, noteName, maxFret);
+        const displayNote = showOctave ? `${noteName}${octave}` : noteName;
+        
+        allNotes.push({
+          string,
+          fret,
+          displayNote
+        });
+      }
+    }
+    
+    return allNotes;
+  }
+  
+  /**
+   * Initialize the note queue with all possible notes in random order
+   */
+  function initializeNoteQueue() {
+    const allNotes = generateAllPossibleNotes();
+    noteQueue = shuffleArray(allNotes);
+    currentNoteIndex = 0;
+  }
+  
   function generateRandomPrompt() {
     const currentSettings = $settings;
     const enabledStrings = currentSettings.enabledStrings
@@ -109,145 +184,30 @@
       return;
     }
     
-    // Get previous note name (without octave) to avoid duplicates
-    const previousNoteName = $quizState.targetNote ? $quizState.targetNote.replace(/\d+$/, '') : null;
-    
-    // Generate random fret (0 = open, or 1-12 if frets1to12Only)
-    const maxFret = currentSettings.frets1to12Only ? 12 : currentSettings.highestFret;
-    
-    // Keep generating until we get a different note (after all adjustments)
-    let targetString: number;
-    let openNote: number;
-    let fret: number;
-    let targetMidiNote: number;
-    let noteIndex: number;
-    let noteName: string;
-    let octave: number;
-    let maxAttempts = 100; // Prevent infinite loop
-    
-    do {
-      targetString = enabledStrings[Math.floor(Math.random() * enabledStrings.length)];
-      openNote = getOpenStringNote(targetString);
-      fret = Math.floor(Math.random() * (maxFret + 1));
-      
-      // Calculate MIDI note number for the target note
-      targetMidiNote = openNote + fret;
-      
-      // Get note name and octave
-      noteIndex = targetMidiNote % 12;
-      noteName = NOTE_NAMES[noteIndex];
-      octave = getOctave(targetMidiNote);
-      
-      // If whole notes only, ensure we get a whole note
-      // Keep trying different frets until we find a whole note
-      if (currentSettings.wholeNotesOnly && noteName.includes('♯')) {
-        // Try frets around the current one to find a whole note
-        let found = false;
-        for (let offset = 1; offset <= maxFret && !found; offset++) {
-          // Try going up first (more natural)
-          if (fret + offset <= maxFret) {
-            const testIndex = (openNote + fret + offset) % 12;
-            const testName = NOTE_NAMES[testIndex];
-            if (!testName.includes('♯')) {
-              fret = fret + offset;
-              noteIndex = testIndex;
-              noteName = testName;
-              // Recalculate octave with new fret
-              const newTargetMidiNote = openNote + fret;
-              octave = getOctave(newTargetMidiNote);
-              found = true;
-              break;
-            }
-          }
-          // Try going down
-          if (fret - offset >= 0 && !found) {
-            const testIndex = (openNote + fret - offset) % 12;
-            const testName = NOTE_NAMES[testIndex];
-            if (!testName.includes('♯')) {
-              fret = fret - offset;
-              noteIndex = testIndex;
-              noteName = testName;
-              // Recalculate octave with new fret
-              const newTargetMidiNote = openNote + fret;
-              octave = getOctave(newTargetMidiNote);
-              found = true;
-              break;
-            }
-          }
-        }
-        // If we still couldn't find a whole note, just skip to next whole note
-        if (!found) {
-          noteIndex = (noteIndex + 1) % 12;
-          noteName = NOTE_NAMES[noteIndex];
-          // Recalculate fret to match the new note
-          const baseNoteValue = openNote % 12;
-          let fretDiff = (noteIndex - baseNoteValue + 12) % 12;
-          // Find the closest valid fret
-          fret = Math.min(fretDiff, maxFret);
-          // Recalculate MIDI note and octave with new fret
-          const newTargetMidiNote = openNote + fret;
-          octave = getOctave(newTargetMidiNote);
-        }
-      }
-      
-      maxAttempts--;
-      if (maxAttempts <= 0) {
-        // Fallback: if we can't find a different note, just proceed
-        // (this should be extremely rare)
-        break;
-      }
-    } while (previousNoteName && noteName === previousNoteName);
-    
-    // Validate that targetString is actually enabled (defensive check)
-    // This should rarely be triggered, but if it is, ensure we don't duplicate the previous note
-    if (!enabledStrings.includes(targetString)) {
-      console.error('ERROR: Generated prompt for disabled string', targetString, 'enabled:', enabledStrings);
-      // Regenerate with a valid string, ensuring no duplicate
-      let validString = enabledStrings[0];
-      let validOpenNote = getOpenStringNote(validString);
-      let validFret = Math.floor(Math.random() * (maxFret + 1));
-      let validNoteIndex = (validOpenNote + validFret) % 12;
-      let validNoteName = NOTE_NAMES[validNoteIndex];
-      let validAttempts = 0;
-      
-      // Ensure we don't duplicate the previous note
-      while (previousNoteName && validNoteName === previousNoteName && validAttempts < 100) {
-        validFret = Math.floor(Math.random() * (maxFret + 1));
-        validNoteIndex = (validOpenNote + validFret) % 12;
-        validNoteName = NOTE_NAMES[validNoteIndex];
-        validAttempts++;
-      }
-      
-      // Calculate octave for valid note
-      const validTargetMidiNote = validOpenNote + validFret;
-      const validOctave = getOctave(validTargetMidiNote);
-      
-      // Only include octave if string has multiple notes with same name
-      const showOctave = hasMultipleNotesWithSameName(validString, validNoteName, maxFret);
-      const displayNote = showOctave ? `${validNoteName}${validOctave}` : validNoteName;
-      
-      quizState.update(state => ({
-        ...state,
-        currentQuestion: state.currentQuestion + 1,
-        targetNote: displayNote,
-        targetString: validString,
-        targetFret: validFret,
-        startTime: Date.now()
-      }));
-    } else {
-      // Only include octave if string has multiple notes with same name
-      const showOctave = hasMultipleNotesWithSameName(targetString, noteName, maxFret);
-      const displayNote = showOctave ? `${noteName}${octave}` : noteName;
-      
-      quizState.update(state => ({
-        ...state,
-        currentQuestion: state.currentQuestion + 1,
-        targetNote: displayNote,
-        targetString,
-        targetFret: fret,
-        startTime: Date.now()
-      }));
+    // Initialize queue if empty or if we've reached the end
+    if (noteQueue.length === 0 || currentNoteIndex >= noteQueue.length) {
+      initializeNoteQueue();
     }
+    
+    // If queue is still empty after initialization, something went wrong
+    if (noteQueue.length === 0) {
+      console.error('ERROR: No notes available in queue');
+      return;
+    }
+    
+    // Get the next note from the queue
+    const noteEntry = noteQueue[currentNoteIndex];
+    currentNoteIndex++;
+    
+    // Update quiz state with the note from the queue
+    quizState.update(state => ({
+      ...state,
+      currentQuestion: state.currentQuestion + 1,
+      targetNote: noteEntry.displayNote,
+      targetString: noteEntry.string,
+      targetFret: noteEntry.fret,
+      startTime: Date.now()
+    }));
     
     isCorrect.set(null);
     stableDetections = 0;
@@ -504,6 +464,9 @@
       stableDetections = 0;
       isTransitioning = false;
       
+      // Regenerate note queue with new settings
+      initializeNoteQueue();
+      
       // Generate new prompt (will increment currentQuestion to 1)
       generateRandomPrompt();
       
@@ -517,6 +480,9 @@
         a4: currentA4
       };
     } else if (settingsChanged) {
+      // Regenerate note queue even if quiz wasn't active
+      initializeNoteQueue();
+      
       // Update previous settings even if quiz wasn't active
       prevSettings = {
         enabledStrings: currentEnabledStrings,
